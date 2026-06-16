@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Dataset
+data/
+
+# Trained models
+*.pth
+
+# Evaluation plots
+*_scores.png
+
+# OS files
+.DS_Store
