@@ -228,3 +228,7 @@ data/
 
 # OS files
 .DS_Store
+
+# Evaluation plots
+!results/
+!results/*.png
