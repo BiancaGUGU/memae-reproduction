@@ -5,39 +5,38 @@
 This repository contains a simplified reproduction of the paper:
 
 **Memorizing Normality to Detect Anomaly: Memory-Augmented Deep Autoencoder for Unsupervised Anomaly Detection**
-(Gong et al., ICCV 2019)
 
-The objective is to reproduce the core idea of MemAE and evaluate it on the **UCSD Ped2** anomaly detection dataset.
+Gong et al., ICCV 2019
 
-The implementation includes:
+The goal of this project is to reproduce the core idea of the Memory-Augmented Autoencoder (MemAE) and evaluate its anomaly detection performance on the UCSD Ped2 benchmark dataset.
+
+Implemented components:
 
 * Convolutional Autoencoder
-* Memory Module
-* Training on normal video frames only
-* Reconstruction-based anomaly scoring
-* Frame-level ROC AUC evaluation
+* Memory-Augmented Latent Representation
+* Reconstruction-based Anomaly Detection
+* Frame-Level ROC AUC Evaluation
+* Inference Speed Measurement (FPS)
+
+---
+# Preliminary Validation on MNIST
+
+Before training on UCSD Ped2, the ConvMemAE implementation was validated using the MNIST dataset.
+
+The MNIST experiments were used only to verify:
+
+* encoder/decoder dimensions
+* memory module functionality
+* forward pass correctness
+* reconstruction capability
+
+MNIST was used exclusively for debugging and implementation validation.
+
+The final reported anomaly detection results correspond only to the UCSD Ped2 dataset.
 
 ---
 
-## Repository Structure
-
-```text
-.
-├── datasets/
-│   └── ucsd_dataset.py
-├── models/
-│   └── conv_memae.py
-├── train_ucsd.py
-├── test_ucsd.py
-├── evaluate_uscd.py
-├── dataset_test.py
-├── conv_test.py
-└── README.md
-```
-
----
-
-## Dataset
+# Dataset
 
 Dataset used:
 
@@ -53,21 +52,28 @@ data/
         │   ├── Train001
         │   ├── Train002
         │   └── ...
+        │
         └── Test/
             ├── Test001
             ├── Test001_gt
+            ├── Test002
+            ├── Test002_gt
             └── ...
 ```
 
 Training uses only normal frames from the Train split.
 
-Ground-truth masks from the Test split are used for evaluation.
+Ground-truth masks from the Test split are used only for evaluation.
 
 ---
 
-## Environment
+# Environment
 
+Python version:
+
+```text
 Python 3.12
+```
 
 Main dependencies:
 
@@ -77,70 +83,94 @@ pip install torch torchvision pillow scikit-learn matplotlib
 
 ---
 
-## Model Architecture
+# Model Architecture
 
-Encoder:
+## Encoder
 
 ```text
 1×128×128
-↓
-Conv(32)
-↓
-Conv(64)
-↓
-Conv(128)
-↓
+      ↓
+Conv2d(1 → 32)
+      ↓
+ReLU
+      ↓
+Conv2d(32 → 64)
+      ↓
+ReLU
+      ↓
+Conv2d(64 → 128)
+      ↓
+ReLU
+      ↓
+Flatten
+      ↓
+Linear
+      ↓
 256-dimensional latent vector
 ```
 
-Memory module:
+## Memory Module
 
 ```text
-Memory size = 200
-Feature dimension = 256
+Memory Size: 200
+Feature Dimension: 256
 ```
 
-Decoder:
+The latent vector is matched against learnable memory slots using a softmax attention mechanism.
+
+## Decoder
 
 ```text
-Latent
-↓
-Memory reconstruction
-↓
-Transposed convolutions
-↓
-1×128×128 reconstruction
+Latent Vector
+      ↓
+Memory Reconstruction
+      ↓
+Linear
+      ↓
+128×16×16
+      ↓
+ConvTranspose2d
+      ↓
+ConvTranspose2d
+      ↓
+ConvTranspose2d
+      ↓
+1×128×128 Reconstruction
 ```
 
 ---
 
-## Training
+# Training
 
-Train the model:
+Run:
 
 ```bash
 python train_ucsd.py
 ```
 
-Default settings:
+Training configuration:
 
-```text
-Epochs: 5
-Batch size: 8
-Learning rate: 1e-4
-Optimizer: Adam
-Loss: MSE
-```
+| Parameter         | Value |
+| ----------------- | ----: |
+| Epochs            |    20 |
+| Batch Size        |     8 |
+| Learning Rate     |  1e-4 |
+| Optimizer         |  Adam |
+| Loss Function     |   MSE |
+| Memory Size       |   200 |
+| Feature Dimension |   256 |
 
-Output:
+The script automatically loads an existing checkpoint if available:
 
 ```text
 conv_memae_ucsd.pth
 ```
 
+and continues training from the saved state.
+
 ---
 
-## Evaluation
+# Evaluation
 
 Run:
 
@@ -148,62 +178,105 @@ Run:
 python evaluate_uscd.py
 ```
 
-The script:
+The evaluation script:
 
-* computes reconstruction error
+* loads the trained model
+* computes reconstruction errors
 * generates anomaly scores
 * computes frame-level ROC AUC
-* reports inference FPS
+* computes per-video ROC AUC
+* measures inference FPS
+* saves anomaly score plots
+
+Generated plots:
+
+```text
+Test001_scores.png
+Test002_scores.png
+...
+Test012_scores.png
+```
 
 ---
 
-## Results
+# Experimental Results
 
-Obtained results on UCSD Ped2:
+## Initial Reproduction Results
+
+The first complete run produced:
 
 | Metric          | Value |
-| --------------- | ----- |
-| Frame-level AUC | 0.637 |
+| --------------- | ----: |
+| Frame-Level AUC | 0.637 |
 | FPS (CPU)       | 64.64 |
 
-Per-video AUC:
+---
 
-| Video   | AUC   |
-| ------- | ----- |
-| Test001 | 0.307 |
-| Test002 | 1.000 |
-| Test003 | 0.986 |
-| Test004 | 1.000 |
-| Test005 | 0.835 |
-| Test006 | 0.827 |
-| Test007 | 1.000 |
-| Test012 | 0.810 |
+## Final Evaluation Results
 
-Some videos produce NaN AUC values because only one class is present in the corresponding ground-truth labels, making ROC AUC undefined.
+After additional training and evaluation:
+
+| Metric            |  Value |
+| ----------------- | -----: |
+| Frame-Level AUC   | 0.6372 |
+| FPS (CPU)         |  67.36 |
+| Training Epochs   |     20 |
+| Memory Size       |    200 |
+| Feature Dimension |    256 |
 
 ---
 
-## Comparison with Original Paper
+## Per-Video Results
 
-| Metric        | Paper | Reproduction |
-| ------------- | ----- | ------------ |
-| UCSD Ped2 AUC | 0.949 | 0.637        |
-| FPS           | 38    | 64.64        |
+| Test Sequence |    AUC |
+| ------------- | -----: |
+| Test001       | 0.3069 |
+| Test002       | 1.0000 |
+| Test003       | 0.9863 |
+| Test004       | 1.0000 |
+| Test005       | 0.8346 |
+| Test006       | 0.8272 |
+| Test007       | 1.0000 |
+| Test008       |    N/A |
+| Test009       |    N/A |
+| Test010       |    N/A |
+| Test011       |    N/A |
+| Test012       | 0.8103 |
 
-Differences are expected because:
-
-* simplified architecture
-* limited training (5 epochs)
-* partial corruption in the downloaded dataset
-* no sparsity regularization
-* no memory compactness loss
-* no thresholding strategy from the original paper
+Test008–Test011 contain only a single class in the frame-level ground truth. Therefore ROC AUC is undefined and Scikit-Learn reports NaN.
 
 ---
 
-## Verification Steps
+# Comparison with Original MemAE
 
-To reproduce the results:
+| Metric          | Original Paper | This Reproduction |
+| --------------- | -------------: | ----------------: |
+| Dataset         |      UCSD Ped2 |         UCSD Ped2 |
+| Frame-Level AUC |          0.949 |            0.6372 |
+| Inference FPS   |             38 |             67.36 |
+| Memory Size     |           2000 |               200 |
+| Training Epochs |            80+ |                20 |
+| Device          |            GPU |               CPU |
+
+The reproduced implementation follows the main MemAE concept but uses a simplified architecture.
+
+Performance differences are expected because of:
+
+* reduced memory size
+* simplified network architecture
+* absence of sparsity regularization
+* absence of memory compactness loss
+* CPU-only execution
+* fewer training epochs
+* partial corruption found in the downloaded UCSD Ped2 training set
+
+Despite these limitations, the implementation successfully reproduces the MemAE workflow and demonstrates anomaly detection capability on UCSD Ped2.
+
+---
+
+# Reproducing the Results
+
+To reproduce the experiments:
 
 ```bash
 python dataset_test.py
@@ -215,31 +288,32 @@ python evaluate_uscd.py
 Expected output:
 
 ```text
-FRAME-LEVEL AUC: ~0.63
-FPS: ~64
+FRAME-LEVEL AUC ≈ 0.63
+FPS ≈ 67
 ```
 
 ---
 
-## References
+# Example Results
 
-Gong, D., Liu, L., Le, V., Saha, B., Mansour, M. R., Venkatesh, S., & van den Hengel, A.
-
-Memorizing Normality to Detect Anomaly:
-Memory-Augmented Deep Autoencoder for Unsupervised Anomaly Detection.
-
-ICCV 2019.
-
-## Example Results
-
-### Test001
+## Test001
 
 ![Test001](results/Test001_scores.png)
 
-### Test005
+## Test005
 
 ![Test005](results/Test005_scores.png)
 
-### Test012
+## Test012
 
 ![Test012](results/Test012_scores.png)
+
+---
+
+# Reference
+
+Gong, D., Liu, L., Le, V., Saha, B., Mansour, M. R., Venkatesh, S., & van den Hengel, A.
+
+**Memorizing Normality to Detect Anomaly: Memory-Augmented Deep Autoencoder for Unsupervised Anomaly Detection**
+
+Proceedings of the IEEE International Conference on Computer Vision (ICCV), 2019.
