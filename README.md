@@ -317,3 +317,8 @@ Gong, D., Liu, L., Le, V., Saha, B., Mansour, M. R., Venkatesh, S., & van den He
 **Memorizing Normality to Detect Anomaly: Memory-Augmented Deep Autoencoder for Unsupervised Anomaly Detection**
 
 Proceedings of the IEEE International Conference on Computer Vision (ICCV), 2019.
+## Presentation
+
+Project presentation:
+
+- [MemAE Presentation](presentation/[C211MS][Detectia_anomaliilor][MemAE][Bureaca_Angela-Emilia][Gugu_Bianca].pptx)

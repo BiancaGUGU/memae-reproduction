@@ -2,8 +2,8 @@ from pathlib import Path
 
 from PIL import Image
 
-import torch
 from torch.utils.data import Dataset
+
 from torchvision import transforms
 
 
@@ -25,50 +25,43 @@ class UCSDPed2Dataset(Dataset):
             self.root_dir.iterdir()
         ):
 
-            if video_dir.is_dir():
+            if not video_dir.is_dir():
+                continue
 
-                frames = sorted(
-                    video_dir.glob("*.tif")
-                )
+            for frame in sorted(
+                video_dir.glob("*.tif")
+            ):
 
-                self.frame_paths.extend(frames)
+                try:
+
+                    Image.open(
+                        frame
+                    ).verify()
+
+                    self.frame_paths.append(
+                        frame
+                    )
+
+                except Exception:
+
+                    print(
+                        f"Corrupted file removed: {frame}"
+                    )
 
     def __len__(self):
 
-        return len(self.frame_paths)
+        return len(
+            self.frame_paths
+        )
 
-    # def __getitem__(self, idx):
-
-    #     image_path = self.frame_paths[idx]
-
-    #     image = Image.open(
-    #         image_path
-    #     )
-
-    #     image = self.transform(
-    #         image
-    #     )
     def __getitem__(self, idx):
 
-        while True:
+        image = Image.open(
+            self.frame_paths[idx]
+        )
 
-            image_path = self.frame_paths[idx]
+        image = self.transform(
+            image
+        )
 
-            try:
-
-                image = Image.open(image_path)
-
-                image = self.transform(image)
-
-                return image
-
-            except Exception:
-
-                print(
-                    f"Skipping corrupted file: {image_path}"
-                )
-
-                idx = (
-                    idx + 1
-                ) % len(self.frame_paths)
-        # return image
+        return image
