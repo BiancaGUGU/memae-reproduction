@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from models.memory_module import MemoryModule
 
 
 class ConvMemAEExtended(nn.Module):
@@ -10,30 +10,31 @@ class ConvMemAEExtended(nn.Module):
         memory_size=500,
         feature_dim=256
     ):
-
         super().__init__()
 
         self.encoder = nn.Sequential(
-
             nn.Conv2d(
                 1, 32,
-                4, 2, 1
+                kernel_size=4,
+                stride=2,
+                padding=1
             ),
-
             nn.ReLU(),
 
             nn.Conv2d(
                 32, 64,
-                4, 2, 1
+                kernel_size=4,
+                stride=2,
+                padding=1
             ),
-
             nn.ReLU(),
 
             nn.Conv2d(
                 64, 128,
-                4, 2, 1
+                kernel_size=4,
+                stride=2,
+                padding=1
             ),
-
             nn.ReLU()
         )
 
@@ -42,11 +43,10 @@ class ConvMemAEExtended(nn.Module):
             feature_dim
         )
 
-        self.memory = nn.Parameter(
-            torch.randn(
-                memory_size,
-                feature_dim
-            )
+        # MEMORIA MEMAE
+        self.memory = MemoryModule(
+            memory_size=memory_size,
+            feature_dim=feature_dim
         )
 
         self.fc_dec = nn.Linear(
@@ -55,31 +55,34 @@ class ConvMemAEExtended(nn.Module):
         )
 
         self.decoder = nn.Sequential(
-
             nn.ConvTranspose2d(
                 128, 64,
-                4, 2, 1
+                kernel_size=4,
+                stride=2,
+                padding=1
             ),
-
             nn.ReLU(),
 
             nn.ConvTranspose2d(
                 64, 32,
-                4, 2, 1
+                kernel_size=4,
+                stride=2,
+                padding=1
             ),
-
             nn.ReLU(),
 
             nn.ConvTranspose2d(
                 32, 1,
-                4, 2, 1
+                kernel_size=4,
+                stride=2,
+                padding=1
             ),
-
             nn.Sigmoid()
         )
 
     def forward(self, x):
 
+        # Encoder
         z = self.encoder(x)
 
         z = z.view(
@@ -89,22 +92,11 @@ class ConvMemAEExtended(nn.Module):
 
         z = self.fc_enc(z)
 
-        att = F.softmax(
-            torch.matmul(
-                z,
-                self.memory.t()
-            ),
-            dim=1
-        )
+        # Memory addressing
+        z_mem, att = self.memory(z)
 
-        z_mem = torch.matmul(
-            att,
-            self.memory
-        )
-
-        dec = self.fc_dec(
-            z_mem
-        )
+        # Decoder
+        dec = self.fc_dec(z_mem)
 
         dec = dec.view(
             -1,
@@ -113,9 +105,7 @@ class ConvMemAEExtended(nn.Module):
             16
         )
 
-        recon = self.decoder(
-            dec
-        )
+        recon = self.decoder(dec)
 
         return (
             recon,
