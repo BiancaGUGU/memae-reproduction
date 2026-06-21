@@ -1,46 +1,73 @@
-# MemAE Reproduction on UCSD Ped2
+# MemAE Reproduction and Extension for Video Anomaly Detection
 
 ## Overview
 
-This repository contains a simplified reproduction of the paper:
+This repository contains a reproduction and extension of the MemAE (Memory-Augmented Autoencoder) architecture for anomaly detection.
 
-**Memorizing Normality to Detect Anomaly: Memory-Augmented Deep Autoencoder for Unsupervised Anomaly Detection**
+The project reproduces the main MemAE concept using a convolutional autoencoder combined with a learnable memory module and evaluates the model on the UCSD Ped2 anomaly detection dataset.
 
-Gong et al., ICCV 2019
+In addition to the original reproduction, several extensions were implemented:
 
-The goal of this project is to reproduce the core idea of the Memory-Augmented Autoencoder (MemAE) and evaluate its anomaly detection performance on the UCSD Ped2 benchmark dataset.
-
-Implemented components:
-
-* Convolutional Autoencoder
-* Memory-Augmented Latent Representation
-* Reconstruction-based Anomaly Detection
-* Frame-Level ROC AUC Evaluation
-* Inference Speed Measurement (FPS)
+* Memory size optimization study
+* Sparse memory addressing through entropy regularization
+* Memory compactness loss
+* Extended training (120 epochs)
+* Automatic removal of corrupted frames
 
 ---
-# Preliminary Validation on MNIST
 
-Before training on UCSD Ped2, the ConvMemAE implementation was validated using the MNIST dataset.
+# Quick Start
 
-The MNIST experiments were used only to verify:
+Clone the repository:
 
-* encoder/decoder dimensions
-* memory module functionality
-* forward pass correctness
-* reconstruction capability
+```bash
+git clone https://github.com/BiancaGUGU/memae-reproduction.git
+cd memae-reproduction
+```
 
-MNIST was used exclusively for debugging and implementation validation.
+Create a virtual environment:
 
-The final reported anomaly detection results correspond only to the UCSD Ped2 dataset.
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+For Windows:
+
+```powershell
+venv\Scripts\activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Train the extended model:
+
+```bash
+python train_memory_experiments.py
+```
+
+Evaluate the best checkpoint:
+
+```bash
+python evaluate_ucsd_extended.py
+```
 
 ---
 
 # Dataset
 
-Dataset used:
+Experiments were performed on the UCSD Ped2 dataset.
 
-**UCSD Ped2**
+Download the UCSD Anomaly Detection Dataset and place it inside:
+
+```text
+data/
+└── UCSD_Anomaly_Dataset.v1p2/
+```
 
 Expected structure:
 
@@ -49,276 +76,167 @@ data/
 └── UCSD_Anomaly_Dataset.v1p2/
     └── UCSDped2/
         ├── Train/
-        │   ├── Train001
-        │   ├── Train002
-        │   └── ...
-        │
         └── Test/
-            ├── Test001
-            ├── Test001_gt
-            ├── Test002
-            ├── Test002_gt
-            └── ...
 ```
 
-Training uses only normal frames from the Train split.
-
-Ground-truth masks from the Test split are used only for evaluation.
+Corrupted frames are automatically detected and excluded during training.
 
 ---
 
-# Environment
+# Implemented Extensions
 
-Python version:
+## 1. Memory Size Study
+
+The influence of memory capacity was investigated using:
+
+* Memory Size = 500
+* Memory Size = 1000
+* Memory Size = 1200
+* Memory Size = 1500
+
+---
+
+## 2. Sparse Memory Addressing
+
+Entropy regularization was added to encourage sparse memory activation:
+
+Loss = Reconstruction Loss + λ₁ × Entropy Loss
+
+This approximates the sparse memory retrieval mechanism proposed in the original MemAE paper.
+
+---
+
+## 3. Memory Compactness Loss
+
+A compactness loss was introduced:
+
+Loss_compact = ||z − z_mem||²
+
+where:
+
+* z = latent representation
+* z_mem = memory-reconstructed latent representation
+
+This encourages memory retrieval consistency.
+
+---
+
+## 4. Extended Training
+
+Training duration was increased to:
 
 ```text
-Python 3.12
+120 epochs
 ```
 
-Main dependencies:
-
-```bash
-pip install torch torchvision pillow scikit-learn matplotlib
-```
+to improve convergence.
 
 ---
 
-# Model Architecture
+## 5. Corrupted Data Filtering
 
-## Encoder
+Corrupted UCSD frames are automatically removed using image verification before training.
+
+---
+
+# Memory Size Study Results
+
+| Memory Size | Best Epoch | Best Validation Loss |
+| ----------- | ---------- | -------------------- |
+| 500         | 119        | 0.000875             |
+| 1000        | 120        | 0.000891             |
+| 1200        | 120        | 0.000885             |
+| 1500        | 118        | 0.000879             |
+
+The best-performing configuration used a memory size of 500.
+
+---
+
+# Final Evaluation
+
+The best checkpoint was evaluated on the UCSD Ped2 test set.
+
+## Frame-Level Performance
+
+| Metric          | Value    |
+| --------------- | -------- |
+| Frame-Level AUC | 0.631782 |
+| FPS             | 56.53    |
+
+---
+
+## Per-Video AUC
+
+| Sequence | AUC    |
+| -------- | ------ |
+| Test001  | 0.2939 |
+| Test002  | 1.0000 |
+| Test003  | 0.9829 |
+| Test004  | 1.0000 |
+| Test005  | 0.8162 |
+| Test006  | 0.8071 |
+| Test007  | 1.0000 |
+| Test012  | 0.8257 |
+
+Generated anomaly score plots are stored in:
 
 ```text
-1×128×128
-      ↓
-Conv2d(1 → 32)
-      ↓
-ReLU
-      ↓
-Conv2d(32 → 64)
-      ↓
-ReLU
-      ↓
-Conv2d(64 → 128)
-      ↓
-ReLU
-      ↓
-Flatten
-      ↓
-Linear
-      ↓
-256-dimensional latent vector
+results/
 ```
 
-## Memory Module
+---
+
+# Repository Structure
 
 ```text
-Memory Size: 200
-Feature Dimension: 256
-```
-
-The latent vector is matched against learnable memory slots using a softmax attention mechanism.
-
-## Decoder
-
-```text
-Latent Vector
-      ↓
-Memory Reconstruction
-      ↓
-Linear
-      ↓
-128×16×16
-      ↓
-ConvTranspose2d
-      ↓
-ConvTranspose2d
-      ↓
-ConvTranspose2d
-      ↓
-1×128×128 Reconstruction
-```
-
----
-
-# Training
-
-Run:
-
-```bash
-python train_ucsd.py
-```
-
-Training configuration:
-
-| Parameter         | Value |
-| ----------------- | ----: |
-| Epochs            |    20 |
-| Batch Size        |     8 |
-| Learning Rate     |  1e-4 |
-| Optimizer         |  Adam |
-| Loss Function     |   MSE |
-| Memory Size       |   200 |
-| Feature Dimension |   256 |
-
-The script automatically loads an existing checkpoint if available:
-
-```text
-conv_memae_ucsd.pth
-```
-
-and continues training from the saved state.
-
----
-
-# Evaluation
-
-Run:
-
-```bash
-python evaluate_uscd.py
-```
-
-The evaluation script:
-
-* loads the trained model
-* computes reconstruction errors
-* generates anomaly scores
-* computes frame-level ROC AUC
-* computes per-video ROC AUC
-* measures inference FPS
-* saves anomaly score plots
-
-Generated plots:
-
-```text
-Test001_scores.png
-Test002_scores.png
-...
-Test012_scores.png
+memae-reproduction/
+│
+├── datasets/
+│   └── ucsd_dataset.py
+│
+├── models/
+│   ├── conv_memae.py
+│   ├── conv_memae_extended.py
+│   ├── memory_module.py
+│   ├── autoencoder.py
+│   └── memae.py
+│
+├── results/
+│
+├── legacy/
+│
+├── train_memory_experiments.py
+├── train_ucsd_extended.py
+├── evaluate_ucsd_extended.py
+├── plot_results.py
+│
+├── log_memory_500.csv
+├── log_memory_1000.csv
+├── log_memory_1200.csv
+├── log_memory_1500.csv
+│
+├── README.md
+└── requirements.txt
 ```
 
 ---
 
-# Experimental Results
+# Discussion
 
-## Initial Reproduction Results
+The obtained performance is lower than the results reported in the original MemAE paper.
 
-The first complete run produced:
+This is expected because the current implementation uses:
 
-| Metric          | Value |
-| --------------- | ----: |
-| Frame-Level AUC | 0.637 |
-| FPS (CPU)       | 64.64 |
+* 2D convolutions
+* frame-wise processing
+* simplified memory representations
 
----
+whereas the original MemAE architecture uses:
 
-## Final Evaluation Results
+* 3D convolutions
+* 16-frame clips
+* spatio-temporal memory addressing
 
-After additional training and evaluation:
+Therefore, this project should be considered a reproduction of the MemAE concept with additional experimental extensions rather than a complete reproduction of the original architecture.
 
-| Metric            |  Value |
-| ----------------- | -----: |
-| Frame-Level AUC   | 0.6372 |
-| FPS (CPU)         |  67.36 |
-| Training Epochs   |     20 |
-| Memory Size       |    200 |
-| Feature Dimension |    256 |
 
----
-
-## Per-Video Results
-
-| Test Sequence |    AUC |
-| ------------- | -----: |
-| Test001       | 0.3069 |
-| Test002       | 1.0000 |
-| Test003       | 0.9863 |
-| Test004       | 1.0000 |
-| Test005       | 0.8346 |
-| Test006       | 0.8272 |
-| Test007       | 1.0000 |
-| Test008       |    N/A |
-| Test009       |    N/A |
-| Test010       |    N/A |
-| Test011       |    N/A |
-| Test012       | 0.8103 |
-
-Test008–Test011 contain only a single class in the frame-level ground truth. Therefore ROC AUC is undefined and Scikit-Learn reports NaN.
-
----
-
-# Comparison with Original MemAE
-
-| Metric          | Original Paper | This Reproduction |
-| --------------- | -------------: | ----------------: |
-| Dataset         |      UCSD Ped2 |         UCSD Ped2 |
-| Frame-Level AUC |          0.949 |            0.6372 |
-| Inference FPS   |             38 |             67.36 |
-| Memory Size     |           2000 |               200 |
-| Training Epochs |            80+ |                20 |
-| Device          |            GPU |               CPU |
-
-The reproduced implementation follows the main MemAE concept but uses a simplified architecture.
-
-Performance differences are expected because of:
-
-* reduced memory size
-* simplified network architecture
-* absence of sparsity regularization
-* absence of memory compactness loss
-* CPU-only execution
-* fewer training epochs
-* partial corruption found in the downloaded UCSD Ped2 training set
-
-Despite these limitations, the implementation successfully reproduces the MemAE workflow and demonstrates anomaly detection capability on UCSD Ped2.
-
----
-
-# Reproducing the Results
-
-To reproduce the experiments:
-
-```bash
-python dataset_test.py
-python conv_test.py
-python train_ucsd.py
-python evaluate_uscd.py
-```
-
-Expected output:
-
-```text
-FRAME-LEVEL AUC ≈ 0.63
-FPS ≈ 67
-```
-
----
-
-# Example Results
-
-## Test001
-
-![Test001](results/Test001_scores.png)
-
-## Test005
-
-![Test005](results/Test005_scores.png)
-
-## Test012
-
-![Test012](results/Test012_scores.png)
-
----
-
-# Reference
-
-Gong, D., Liu, L., Le, V., Saha, B., Mansour, M. R., Venkatesh, S., & van den Hengel, A.
-
-**Memorizing Normality to Detect Anomaly: Memory-Augmented Deep Autoencoder for Unsupervised Anomaly Detection**
-
-Proceedings of the IEEE International Conference on Computer Vision (ICCV), 2019.
-## Presentation
-
-Project presentation:
-
-- [MemAE Presentation](presentation/[C211MS][Detectia_anomaliilor][MemAE][Bureaca_Angela-Emilia][Gugu_Bianca].pptx)
