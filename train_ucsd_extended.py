@@ -11,9 +11,9 @@ from models.conv_memae_extended import (
 )
 
 
-MEMORY_SIZE = 500
+MEMORY_SIZE = 1000
 
-EPOCHS = 50
+EPOCHS = 120
 
 
 device = torch.device(
